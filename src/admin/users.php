@@ -49,6 +49,7 @@ ob_start();
 <div class="card">
     <div class="card-body">
         <h5 class="card-title">Daftar Pelanggan</h5>
+        <?php echo "Current System date: " . date('Y-m-d H:i:s') ?>
         <table class="table table-hover">
             <thead>
                 <tr>

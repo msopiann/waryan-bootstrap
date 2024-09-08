@@ -1,5 +1,6 @@
 <?php
 // src/admin/dashboard.php
+
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
@@ -38,13 +39,8 @@ $previousSales = countSales($previousPeriod);
 $previousRevenue = calculateRevenue($previousPeriod);
 
 // Menghitung persentase perubahan
-$percentageChange = $previousSales > 0 ? (($currentSales - $previousSales) / $previousSales) * 100 : 0;
-$percentageChange = $previousRevenue > 0 ? (($currentRevenue - $previousRevenue) / $previousRevenue) * 100 : 0;
-
-
-// Menentukan teks dan kelas untuk perubahan
-$changeText = $percentageChange >= 0 ? 'increase' : 'decrease';
-$changeClass = $percentageChange >= 0 ? 'text-success' : 'text-danger';
+$percentageSalesChange = $previousSales > 0 ? (($currentSales - $previousSales) / $previousSales) * 100 : 0;
+$percentageRevenueChange = $previousRevenue > 0 ? (($currentRevenue - $previousRevenue) / $previousRevenue) * 100 : 0;
 
 // Fungsi untuk menghasilkan URL dengan filter
 function getFilterUrl($filter)
@@ -97,7 +93,6 @@ ob_start();
                         <div class="card-body">
                             <h5 class="card-title">Sales <span>|
                                     <?php echo htmlspecialchars($filterTitle); ?></span></h5>
-
                             <div class="d-flex align-items-center">
                                 <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
                                     <i class="bi bi-cart"></i>

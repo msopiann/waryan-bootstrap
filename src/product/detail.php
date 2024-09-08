@@ -1,4 +1,8 @@
 <?php
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../../helpers/product_crud.php';
 require_once __DIR__ . '/../../lib/formatCurrency.php';
 
@@ -17,6 +21,23 @@ if ($slug) {
 } else {
     echo "Slug produk tidak ditentukan.";
     exit;
+}
+
+if (isset($_POST['add_to_wishlist'])) {
+    // Check if the user is authenticated
+    if (!isset($_SESSION['user_id'])) {
+        // Redirect to sign-in page if not authenticated
+        header('Location: ../sign-in.php');
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+    $productId = $product['id'];
+    if (addToWishlist($userId, $productId)) {
+        $successMessage = "Product added to wishlist successfully!";
+    } else {
+        $errorMessage = "Failed to add product to wishlist.";
+    }
 }
 
 ob_start();
@@ -84,12 +105,27 @@ ob_start();
                             </div>
                         </div>
                     </div>
-                    <a href="#" class="btn btn-warning shadow-0"> Buy now </a>
-                    <a href="#" class="btn btn-primary shadow-0"> <i class="me-1 fa fa-shopping-basket"></i> Add to
-                        cart
-                    </a>
-                    <a href="#" class="btn btn-light border border-secondary py-2 icon-hover px-3"> <i
-                            class="me-1 fa fa-heart fa-lg"></i> Save </a>
+
+                    <form action="checkout.php" method="get" style="display: inline;">
+                        <input type="hidden" name="product_id" value="<?php echo $product['slug'] ?>">
+                        <input type="hidden" name="quantity" id="buy-now-quantity" value="1">
+                        <button type="submit" class="btn btn-warning shadow-0">
+                            Buy Now
+                        </button>
+                    </form>
+
+                    <form method="post" style="display: inline;">
+                        <input type="hidden" name="add_to_wishlist" value="1">
+                        <button type="submit" class="btn btn-primary shadow-0">
+                            <i class="me-1 fa fa-heart"></i> Add to Wishlist
+                        </button>
+                    </form>
+                    <?php if (isset($successMessage)): ?>
+                    <div class="alert alert-success mt-3"><?php echo $successMessage; ?></div>
+                    <?php endif; ?>
+                    <?php if (isset($errorMessage)): ?>
+                    <div class="alert alert-danger mt-3"><?php echo $errorMessage; ?></div>
+                    <?php endif; ?>
                 </div>
             </main>
         </div>
@@ -97,35 +133,32 @@ ob_start();
 </section>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const stock = <?php echo $product['stock']; ?>;
-        const quantityInput = document.getElementById('quantity-input');
-        const increaseButton = document.getElementById('button-increase');
-        const decreaseButton = document.getElementById('button-decrease');
+document.addEventListener('DOMContentLoaded', function() {
+    const stock = <?php echo $product['stock']; ?>;
+    const quantityInput = document.getElementById('quantity-input');
+    const buyNowQuantityInput = document.getElementById('buy-now-quantity');
+    const increaseButton = document.getElementById('button-increase');
+    const decreaseButton = document.getElementById('button-decrease');
 
-        increaseButton.addEventListener('click', function() {
-            let currentValue = parseInt(quantityInput.value);
-            if (currentValue < stock) {
-                quantityInput.value = currentValue + 1;
-            }
-        });
+    function updateQuanitity(newValue) {
+        if (newValue < 1) newValue = 1;
+        if (newValue > stock) newValue = stock;
+        quantityInput.value = newValue;
+        buyNowQuantityInput.value = newValue;
+    }
 
-        decreaseButton.addEventListener('click', function() {
-            let currentValue = parseInt(quantityInput.value);
-            if (currentValue > 1) {
-                quantityInput.value = currentValue - 1;
-            }
-        });
-
-        quantityInput.addEventListener('input', function() {
-            let currentValue = parseInt(quantityInput.value);
-            if (isNaN(currentValue) || currentValue < 1) {
-                quantityInput.value = 1;
-            } else if (currentValue > stock) {
-                quantityInput.value = stock;
-            }
-        });
+    increaseButton.addEventListener('click', function() {
+        updateQuanitity(parseInt(quantityInput.value) + 1);
     });
+
+    decreaseButton.addEventListener('click', function() {
+        updateQuanitity(parseInt(quantityInput.value) - 1);
+    });
+
+    quantityInput.addEventListener('input', function() {
+        updateQuanitity(parseInt(quantityInput.value));
+    });
+});
 </script>
 
 <?php $content = ob_get_clean();

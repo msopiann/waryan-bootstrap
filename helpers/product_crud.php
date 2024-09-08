@@ -1,8 +1,8 @@
 <?php
 // helpers/product_crud.php
-
 require_once __DIR__ . '/../config/sql_connection.php';
 require_once __DIR__ . '/./slug_helper.php';
+
 
 // Create (Insert) function
 function createProduct($name, $slug, $description, $price, $stock, $image_url)
@@ -105,21 +105,25 @@ function deleteProduct($id)
 // Untuk Monitoring Penjualan
 function getDateRange($period)
 {
-    $end_date = date('Y-m-d H:i:s');
+    $end_date = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+    $end_date_str = $end_date->format('Y-m-d H:i:s');
+
     switch ($period) {
         case 'day':
-            $start_date = date('Y-m-d H:i:s', strtotime('-1 day'));
+            $start_date = $end_date->modify('-1 day');
             break;
         case 'week':
-            $start_date = date('Y-m-d H:i:s', strtotime('-1 week'));
+            $start_date = $end_date->modify('-1 week');
             break;
         case 'month':
-            $start_date = date('Y-m-d H:i:s', strtotime('-1 month'));
+            $start_date = $end_date->modify('-1 month');
             break;
         default:
             throw new Exception("Invalid period specified");
     }
-    return [$start_date, $end_date];
+    $start_date_str = $start_date->format('Y-m-d H:i:s');
+
+    return [$start_date_str, $end_date_str];
 }
 
 function countSales($period)
@@ -194,7 +198,7 @@ function getTopSalesProducts($period, $limit = 5)
     $sql = "SELECT 
                 p.id, 
                 p.name, 
-                p.price,
+                p.price,    
                 p.image_url, 
                 SUM(oi.quantity) as total_sold,
                 SUM(oi.quantity * oi.price) as total_revenue
@@ -231,4 +235,104 @@ function getTopSalesProducts($period, $limit = 5)
     }
 
     return $topProducts;
+}
+
+function updateOrderStatus($orderId, $newStatus)
+{
+    global $conn;
+    $allowedStatuses = ['pending', 'processing', 'delivered', 'shipped', 'completed', 'cancelled'];
+
+    // Validasi status baru
+    if (!in_array($newStatus, $allowedStatuses)) {
+        return false;
+    }
+
+    // Ambil status lama dari pesanan untuk memastikan pembaruan hanya terjadi dari pending ke completed
+    $oldStatusQuery = "SELECT status FROM orders WHERE id = ?";
+    $stmt = $conn->prepare($oldStatusQuery);
+    $stmt->bind_param("s", $orderId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $oldStatus = $result->fetch_assoc()['status'];
+
+    // Update status pesanan
+    $sql = "UPDATE orders SET status = ? WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ss", $newStatus, $orderId);
+
+    if ($stmt->execute()) {
+        // Perbarui sold_count jika status berubah dari selain 'completed' menjadi 'completed'
+        if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+            $updateSoldCountSql = "
+                UPDATE products p
+                JOIN order_items oi ON p.id = oi.product_id
+                SET p.sold_count = p.sold_count + oi.quantity
+                WHERE oi.order_id = ?";
+            $stmt = $conn->prepare($updateSoldCountSql);
+            $stmt->bind_param("s", $orderId);
+            $stmt->execute();
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+function getAllOrders($limit = 50, $offset = 0)
+{
+    global $conn;
+    $sql = "SELECT o.id, o.user_id, u.username, u.email, o.total_price, o.status, o.created_at
+            FROM orders o
+            JOIN users u ON o.user_id = u.id
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET ?";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $limit, $offset);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+function addToWishlist($userId, $productId)
+{
+    global $conn;
+    $sql = "INSERT INTO wishlist (id, user_id, product_id) VALUES (UUID(), ?, ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ss", $userId, $productId);
+
+    if ($stmt->execute()) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function getWishlistItems($userId)
+{
+    global $conn;
+    $sql = "SELECT w.id as wishlist_id, p.* FROM wishlist w
+            JOIN products p ON w.product_id = p.id
+            WHERE w.user_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+function removeFromWishlist($wishlistId)
+{
+    global $conn;
+    $sql = "DELETE FROM wishlist WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $wishlistId);
+
+    if ($stmt->execute()) {
+        return true;
+    } else {
+        return false;
+    }
 }
