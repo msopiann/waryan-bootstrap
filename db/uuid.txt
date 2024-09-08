@@ -1,0 +1,40 @@
+DELIMITER //
+CREATE FUNCTION uuid_v4_baru() 
+RETURNS CHAR(36)
+BEGIN
+    SET @hex = CONCAT(
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256)),
+        HEX(FLOOR(RAND() * 256))
+    );
+    
+    SET @hex = CONCAT(
+        SUBSTR(@hex, 1, 8),
+        '-',
+        SUBSTR(@hex, 9, 4),
+        '-4',
+        SUBSTR(@hex, 14, 3),
+        '-',
+        HEX(FLOOR(ASCII(SUBSTR(@hex, 17, 1)) / 64) + 8),
+        SUBSTR(@hex, 18, 3),
+        '-',
+        SUBSTR(@hex, 21)
+    );
+    RETURN LOWER(@hex);
+END //
+DELIMITER ;
+
+
